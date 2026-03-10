@@ -1,5 +1,6 @@
 ﻿using HutongGames.PlayMaker;
 using MSCLoader;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace MSCPocketItems
@@ -18,9 +19,11 @@ namespace MSCPocketItems
         private SettingsKeybind pocketKey;
 
         private FsmGameObject pickedObject;
-        private GameObject hiddenItem;
         private Transform itemPivot;
         private PlayMakerFSM pickUpFsm;
+
+        private const int MAX_POCKET_SLOTS = 3;
+        private Stack<GameObject> pocket = new Stack<GameObject>();
 
         private Camera fpsCamera;
 
@@ -124,10 +127,17 @@ namespace MSCPocketItems
 
         private void Mod_Update()
         {
-            if (hiddenItem != null)
+            if (pocket.Count > 0)
             {
-                Vector3 viewportPos = fpsCamera.ViewportToWorldPoint(new Vector3(0.1f, 0.5f, 0.5f));
-                hiddenItem.transform.position = viewportPos;
+                int i = 0;
+                foreach (GameObject item in pocket)
+                {
+                    Vector3 viewportPos = fpsCamera.ViewportToWorldPoint(
+                        new Vector3(0.1f, 0.5f - (i * 0.1f), 0.5f)
+                    );
+                    item.transform.position = viewportPos;
+                    i++;
+                }
             }
 
             if (pocketFullTimer > 0f)
@@ -137,10 +147,6 @@ namespace MSCPocketItems
 
             if (debugKey.GetKeybindDown())
             {
-                LogToFile("--- DEBUG PRESS ---");
-                LogToFile($"  hiddenItem: {(hiddenItem != null ? hiddenItem.name : "null")}");
-                LogToFile($"  pickedObject.Value: {(pickedObject.Value != null ? pickedObject.Value.name : "null")}");
-                LogToFile($"  FSM current state: {pickUpFsm.ActiveStateName}");
 
                 // Log envelope state if it exists in the scene
                 GameObject envelope = GameObject.Find("envelope(xxxxx)");
@@ -174,39 +180,32 @@ namespace MSCPocketItems
 
             if (pocketKey.GetKeybindDown())
             {
-                if (hiddenItem != null && pickedObject.Value != null)
+                if (pocket.Count > 0 && pickedObject.Value == null)
                 {
-                    // Already have something pocketed, trying to pocket another
-                    pocketFullTimer = 2f;
-                }
-                else if (hiddenItem != null)
-                {
-                    // Restore renderers and colliders
-                    foreach (var r in hiddenItem.GetComponentsInChildren<Renderer>())
+                    GameObject item = pocket.Pop();
+
+                    foreach (var r in item.GetComponentsInChildren<Renderer>())
                     {
                         r.enabled = true;
                     }
 
-                    foreach (var c in hiddenItem.GetComponentsInChildren<Collider>())
+                    foreach (var c in item.GetComponentsInChildren<Collider>())
                     {
                         c.enabled = true;
                     }
-                    // Clear the FSM reference and send the drop event
-                    // so the game properly releases the item
+
                     pickedObject.Value = null;
                     pickUpFsm.SendEvent("DROP_PART");
 
-                    hiddenItem.transform.SetParent(null);
-                    hiddenItem.layer = LayerMask.NameToLayer("Parts");
+                    item.transform.SetParent(null);
+                    item.layer = LayerMask.NameToLayer("Parts");
 
-                    // Now place it in the world
                     GameObject player = GameObject.Find("PLAYER");
-                    hiddenItem.transform.position = player.transform.position
+                    item.transform.position = player.transform.position
                         + player.transform.forward * 0.8f
-                        + Vector3.up * 1.2f;
+                        + Vector3.up * 1.6f;
 
-                    // Wake up the rigidbody
-                    Rigidbody rb = hiddenItem.GetComponent<Rigidbody>();
+                    Rigidbody rb = item.GetComponent<Rigidbody>();
                     if (rb != null)
                     {
                         rb.isKinematic = false;
@@ -215,37 +214,39 @@ namespace MSCPocketItems
                         rb.WakeUp();
                     }
 
-                    LogToFile($"Item retrieved at feet: {hiddenItem.name}");
-
-                    hiddenItem = null;
+                    LogToFile($"Item retrieved: {item.name} | Stack size: {pocket.Count}");
                 }
-                else if (pickedObject.Value != null)
+                else if (pickedObject.Value != null && pocket.Count < MAX_POCKET_SLOTS)
                 {
-                    GameObject held = pickedObject.Value;
-                    hiddenItem = held;
-
-                    //foreach (var r in held.GetComponentsInChildren<Renderer>())
-                    //{
-                    //    r.enabled = false;
-                    //}
-
-                    foreach (var c in held.GetComponentsInChildren<Collider>())
+                    if (pocket.Count >= MAX_POCKET_SLOTS)
                     {
-                        c.enabled = false;
+                        pocketFullTimer = 3f;
                     }
-
-                    Rigidbody rb = held.GetComponent<Rigidbody>();
-                    if (rb != null)
+                    else
                     {
-                        rb.isKinematic = true;
-                        rb.velocity = Vector3.zero;
-                        rb.angularVelocity = Vector3.zero;
+                        GameObject held = pickedObject.Value;
+
+                        Rigidbody rb = held.GetComponent<Rigidbody>();
+                        if (rb != null)
+                        {
+                            rb.isKinematic = true;
+                            rb.velocity = Vector3.zero;
+                            rb.angularVelocity = Vector3.zero;
+                        }
+
+                        held.transform.SetParent(fpsCamera.transform);
+                        held.transform.localRotation = Quaternion.Euler(20f, 120f, 0f);
+                        pickedObject.Value = null;
+                        pickUpFsm.SendEvent("DROP_PART");
+                        pocket.Push(held);
+
+                        LogToFile($"Item pocketed: {held.name} | Stack size: {pocket.Count}");
                     }
-
-                    pickedObject.Value = null;
-                    pickUpFsm.SendEvent("DROP_PART");
-
-                    LogToFile($"Item pocketed: {held.name}");
+                }
+                else if (pickedObject.Value != null && pocket.Count >= MAX_POCKET_SLOTS)
+                {
+                    // holding something but pocket full
+                    pocketFullTimer = 3f;
                 }
                 else
                 {

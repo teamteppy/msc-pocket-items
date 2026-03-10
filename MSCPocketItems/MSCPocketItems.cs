@@ -22,6 +22,8 @@ namespace MSCPocketItems
         private Transform itemPivot;
         private PlayMakerFSM pickUpFsm;
 
+        private Camera fpsCamera;
+
         private float pocketFullTimer = 0f;
 
         private void LogToFile(string message)
@@ -61,6 +63,7 @@ namespace MSCPocketItems
 
         private void Mod_OnLoad()
         {
+            fpsCamera = GameObject.Find("FPSCamera").GetComponent<Camera>();
             GameObject player = GameObject.Find("PLAYER");
 
             foreach (var fsm in player.GetComponentsInChildren<PlayMakerFSM>())
@@ -121,6 +124,12 @@ namespace MSCPocketItems
 
         private void Mod_Update()
         {
+            if (hiddenItem != null)
+            {
+                Vector3 viewportPos = fpsCamera.ViewportToWorldPoint(new Vector3(0.1f, 0.5f, 0.5f));
+                hiddenItem.transform.position = viewportPos;
+            }
+
             if (pocketFullTimer > 0f)
             {
                 pocketFullTimer -= Time.deltaTime;
@@ -224,11 +233,6 @@ namespace MSCPocketItems
                     {
                         c.enabled = false;
                     }
-
-                    GameObject fpsCamera = GameObject.Find("FPSCamera");
-                    held.transform.SetParent(fpsCamera.transform);
-                    held.transform.localPosition = new Vector3(0.6f, -0.1f, 0.5f);
-                    held.transform.localRotation = Quaternion.Euler(20f, 0f, 120f);
 
                     Rigidbody rb = held.GetComponent<Rigidbody>();
                     if (rb != null)

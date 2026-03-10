@@ -8,14 +8,12 @@ namespace MSCPocketItems
     public class MSCPocketItems : Mod
     {
         public override string ID => "MSCPocketItems";
-        public override string Name => "MSCPocketItems";
+        public override string Name => "Carry More Items";
         public override string Author => "teamteppy";
         public override string Version => "1.0";
-        public override string Description => "";
+        public override string Description => "Hold 3 items";
         public override Game SupportedGames => Game.MySummerCar;
 
-        private PlayMakerGlobals globals;
-        private SettingsKeybind debugKey;
         private SettingsKeybind pocketKey;
 
         private FsmGameObject pickedObject;
@@ -154,27 +152,6 @@ namespace MSCPocketItems
             "empty bottle(Clone)",
         };
 
-
-        private void LogToFile(string message)
-        {
-            string path = Application.persistentDataPath + "/MSCMod_debug.txt";
-            System.IO.File.AppendAllText(path, message + "\n");
-        }
-
-        private string GetGameObjectPath(GameObject go)
-        {
-            string path = go.name;
-            Transform t = go.transform.parent;
-
-            while (t != null)
-            {
-                path = t.name + "/" + path;
-                t = t.parent;
-            }
-
-            return path;
-        }
-
         public override void ModSetup()
         {
             SetupFunction(Setup.OnLoad, Mod_OnLoad);
@@ -186,7 +163,6 @@ namespace MSCPocketItems
 
         private void Mod_Settings()
         {
-            debugKey = Keybind.Add("DebugKey", "Debug Game", KeyCode.Alpha9);
             pocketKey = Keybind.Add("PocketKey", "Pocket Item", KeyCode.Alpha3);
         }
 
@@ -205,7 +181,6 @@ namespace MSCPocketItems
                         if (v.Name == "PickedObject")
                         {
                             pickedObject = v;
-                            LogToFile("pickedObject reference cached successfully.");
                             break;
                         }
                     }
@@ -214,21 +189,7 @@ namespace MSCPocketItems
                 }
             }
 
-            if (pickedObject == null)
-            {
-                LogToFile("ERROR: could not find PickedObject FSM variable.");
-            }
-
             itemPivot = GameObject.Find("ItemPivot").transform;
-
-            if (itemPivot == null)
-            {
-                LogToFile("ERROR: could not find ItemPivot.");
-            }
-            else
-            {
-                LogToFile("ItemPivot cached successfully.");
-            }
         }
 
         private void Mod_OnSave()
@@ -258,9 +219,6 @@ namespace MSCPocketItems
                     rb.angularVelocity = Vector3.zero;
                 }
                 item.transform.position = new Vector3(-8.42f, 0.2f, 9.29f);
-                LogToFile($"  Set position to: {item.transform.position}");
-
-                LogToFile($"Item dumped on save: {item.name}");
             }
         }
 
@@ -312,18 +270,6 @@ namespace MSCPocketItems
                 pocketFullTimer -= Time.deltaTime;
             }
 
-            if (debugKey.GetKeybindDown())
-            {
-                if (pickedObject.Value != null)
-                {
-                    LogToFile($"Held item: {pickedObject.Value.name}");
-                }
-                else
-                {
-                    LogToFile("Not holding anything.");
-                }
-            }
-
             if (pocketKey.GetKeybindDown())
             {
                 if (pocket.Count > 0 && pickedObject.Value == null)
@@ -359,8 +305,6 @@ namespace MSCPocketItems
                         rb.angularVelocity = Vector3.zero;
                         rb.WakeUp();
                     }
-
-                    LogToFile($"Item retrieved: {item.name} | Stack size: {pocket.Count}");
                 }
                 else if (pickedObject.Value != null && pocket.Count < MAX_POCKET_SLOTS)
                 {
@@ -391,18 +335,12 @@ namespace MSCPocketItems
                         pickedObject.Value = null;
                         pickUpFsm.SendEvent("DROP_PART");
                         pocket.Push(held);
-
-                        LogToFile($"Item pocketed: {held.name} | Stack size: {pocket.Count}");
                     }
                 }
                 else if (pickedObject.Value != null && pocket.Count >= MAX_POCKET_SLOTS)
                 {
                     // holding something but pocket full
-                    pocketFullTimer = 3f;
-                }
-                else
-                {
-                    LogToFile("Not holding anything and pocket is empty.");
+                    pocketFullTimer = 1f;
                 }
             }
 

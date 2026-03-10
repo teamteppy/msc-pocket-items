@@ -22,6 +22,8 @@ namespace MSCPocketItems
         private Transform itemPivot;
         private PlayMakerFSM pickUpFsm;
 
+        private float pocketFullTimer = 0f;
+
         private void LogToFile(string message)
         {
             string path = Application.persistentDataPath + "/MSCMod_debug.txt";
@@ -105,11 +107,25 @@ namespace MSCPocketItems
 
         private void Mod_OnGUI()
         {
-            // Draw unity OnGUI() here
+            if (pocketFullTimer > 0f)
+            {
+                GUIStyle style = new GUIStyle();
+                style.fontSize = 60;
+                style.fontStyle = FontStyle.Bold;
+                style.normal.textColor = Color.white;
+                style.alignment = TextAnchor.UpperCenter;
+
+                GUI.Label(new Rect(0, 60, Screen.width, 60), "Pocket full!", style);
+            }
         }
 
         private void Mod_Update()
         {
+            if (pocketFullTimer > 0f)
+            {
+                pocketFullTimer -= Time.deltaTime;
+            }
+
             if (debugKey.GetKeybindDown())
             {
                 LogToFile("--- DEBUG PRESS ---");
@@ -149,7 +165,12 @@ namespace MSCPocketItems
 
             if (pocketKey.GetKeybindDown())
             {
-                if (hiddenItem != null)
+                if (hiddenItem != null && pickedObject.Value != null)
+                {
+                    // Already have something pocketed, trying to pocket another
+                    pocketFullTimer = 2f;
+                }
+                else if (hiddenItem != null)
                 {
                     // Restore renderers and colliders
                     foreach (var r in hiddenItem.GetComponentsInChildren<Renderer>())
@@ -173,7 +194,7 @@ namespace MSCPocketItems
                     GameObject player = GameObject.Find("PLAYER");
                     hiddenItem.transform.position = player.transform.position
                         + player.transform.forward * 0.8f
-                        + Vector3.up * 0.3f;
+                        + Vector3.up * 1.2f;
 
                     // Wake up the rigidbody
                     Rigidbody rb = hiddenItem.GetComponent<Rigidbody>();
@@ -206,6 +227,7 @@ namespace MSCPocketItems
 
                     held.transform.position = new Vector3(0f, -1000f, 0f);
                     pickedObject.Value = null;
+                    pickUpFsm.SendEvent("DROP_PART");
 
                     LogToFile($"Item pocketed: {held.name}");
                 }
@@ -214,6 +236,7 @@ namespace MSCPocketItems
                     LogToFile("Not holding anything and pocket is empty.");
                 }
             }
+
         }
 
     }

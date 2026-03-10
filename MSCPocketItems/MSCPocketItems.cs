@@ -215,17 +215,29 @@ namespace MSCPocketItems
                     GameObject held = pickedObject.Value;
                     hiddenItem = held;
 
-                    foreach (var r in held.GetComponentsInChildren<Renderer>())
-                    {
-                        r.enabled = false;
-                    }
+                    //foreach (var r in held.GetComponentsInChildren<Renderer>())
+                    //{
+                    //    r.enabled = false;
+                    //}
 
                     foreach (var c in held.GetComponentsInChildren<Collider>())
                     {
                         c.enabled = false;
                     }
 
-                    held.transform.position = new Vector3(0f, -1000f, 0f);
+                    GameObject fpsCamera = GameObject.Find("FPSCamera");
+                    held.transform.SetParent(fpsCamera.transform);
+                    held.transform.localPosition = new Vector3(0.6f, -0.1f, 0.5f);
+                    held.transform.localRotation = Quaternion.Euler(20f, 0f, 120f);
+
+                    Rigidbody rb = held.GetComponent<Rigidbody>();
+                    if (rb != null)
+                    {
+                        rb.isKinematic = true;
+                        rb.velocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                    }
+
                     pickedObject.Value = null;
                     pickUpFsm.SendEvent("DROP_PART");
 

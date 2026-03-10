@@ -28,6 +28,132 @@ namespace MSCPocketItems
         private Camera fpsCamera;
 
         private float pocketFullTimer = 0f;
+        private float itemTooBigTimer = 0f;
+
+        private string[] pocketWhitelist = new string[]
+        {
+            "envelope(xxxxx)",
+            "notepad(itemx)",
+            "shock absorber(Clone)",
+            "tv remote control(itemx)",
+            "steering column(Clone)",
+            "trail arm rl(Clone)",
+            "trail arm rr(Clone)",
+            "drum brake(Clone)",
+            "strut fr(Clone)",
+            "strut fl(Clone)",
+            "halfshaft(Clone)",
+            "coil spring(Clone)",
+            "wishbone fr(Clone)",
+            "wishbone fl(Clone)",
+            "steering rack(Clone)",
+            "steering rod fl(Clone)",
+            "steering rod fr(Clone)",
+            "disc brake(Clone)",
+            "spindle fr(Clone)",
+            "spindle fl(Clone)",
+            "dashboard meters(Clone)",
+            "flashlight(itemx)",
+            "main bearing1(Clone)",
+            "main bearing(Clone)",
+            "main bearing3(Clone)",
+            "mudflap rr(Clone)",
+            "mudflap rl(Clone)",
+            "mudflap fr(Clone)",
+            "mudflap fl(Clone)",
+            "airfilter(Clone)",
+            "rear light right(Clone)",
+            "rear light left(Clone)",
+            "spanner set(itemx)",
+            "headlight left(Clone)",
+            "headlight right(Clone)",
+            "gasoline(itemx)",
+            "clock gauge(Clone)",
+            "hubcap(Clone)",
+            "brake master cylinder(Clone)",
+            "radio(Clone)",
+            "wiring mess(itemx)",
+            "brake lining(Clone)",
+            "clutch lining(Clone)",
+            "stock steering wheel(Clone)",
+            "xmas lights(Clone)",
+            "clutch master cylinder(Clone)",
+            "starter(Clone)",
+            "headers(Clone)",
+            "electrics(Clone)",
+            "fuel pump(Clone)",
+            "water pump(Clone)",
+            "water pump pulley(Clone)",
+            "alternator(Clone)",
+            "rocker shaft(Clone)",
+            "main bearing2(Clone)",
+            "distributor(Clone)",
+            "oil filter(Clone)",
+            "head gasket(Clone)",
+            "flywheel(Clone)",
+            "camshaft(Clone)",
+            "camshaft gear(Clone)",
+            "crankshaft pulley(Clone)",
+            "clutch cover plate(Clone)",
+            "clutch pressure plate(Clone)",
+            "clutch disc(Clone)",
+            "timing chain(Clone)",
+            "engine plate(Clone)",
+            "drive gear(Clone)",
+            "piston1(Clone)",
+            "piston2(Clone)",
+            "piston3(Clone)",
+            "piston4(Clone)",
+            "timing cover(Clone)",
+            "radiator hose3(Clone)",
+            "radiator hose2(Clone)",
+            "radiator hose1(Clone)",
+            "battery(Clone)",
+            "radiator(Clone)",
+            "gear linkage(Clone)",
+            "inspection cover(Clone)",
+            "gear stick(Clone)",
+            "fuel strainer(Clone)",
+            "fuel tank pipe(Clone)",
+            "exhaust muffler(Clone)",
+            "handbrake(Clone)",
+            "back panel(Clone)",
+            "subwoofer panel(Clone)",
+            "bumper front(Clone)",
+            "bumper rear(Clone)",
+            "grille(Clone)",
+            "coolant(itemx)",
+            "motor oil(itemx)",
+            "two stroke fuel(itemx)",
+            "fire extinguisher(itemx)",
+            "seat cover suomi(Clone)",
+            "shopping bag(itemx)",
+            "ground coffee(itemx)",
+            "milk(itemx)",
+            "sugar(itemx)",
+            "potato chips(itemx)",
+            "alternator belt(Clone)",
+            "car light bulb box(Clone)",
+            "mosquito spray(itemx)",
+            "cigarettes(itemx)",
+            "brake fluid(itemx)",
+            "spark plug box(Clone)",
+            "juice(itemx)",
+            "spray can(itemx)",
+            "fuse package(Clone)",
+            "yeast(itemx)",
+            "r20 battery box(Clone)",
+            "macaron box(itemx)",
+            "sausages(itemx)",
+            "pizza(itemx)",
+            "empty(itemx)",
+            "r20 battery(Clone)",
+            "fuse(Clone)",
+            "spark plug(Clone)",
+            "light bulb(Clone)",
+            "empty bottle(Clone)",
+        };
+
 
         private void LogToFile(string message)
         {
@@ -140,6 +266,16 @@ namespace MSCPocketItems
 
         private void Mod_OnGUI()
         {
+            if (itemTooBigTimer > 0f)
+            {
+                GUIStyle style = new GUIStyle();
+                style.fontSize = 60;
+                style.fontStyle = FontStyle.Bold;
+                style.normal.textColor = Color.white;
+                style.alignment = TextAnchor.UpperCenter;
+
+                GUI.Label(new Rect(0, 60, Screen.width, 60), "Liikaa tavaraa! ):", style);
+            }
             if (pocketFullTimer > 0f)
             {
                 GUIStyle style = new GUIStyle();
@@ -148,7 +284,7 @@ namespace MSCPocketItems
                 style.normal.textColor = Color.white;
                 style.alignment = TextAnchor.UpperCenter;
 
-                GUI.Label(new Rect(0, 60, Screen.width, 60), "Pocket full!", style);
+                GUI.Label(new Rect(0, 60, Screen.width, 60), "Liikaa tavaraa! (3/3)", style);
             }
         }
 
@@ -167,6 +303,10 @@ namespace MSCPocketItems
                 }
             }
 
+            if (itemTooBigTimer > 0f)
+            {
+                itemTooBigTimer -= Time.deltaTime;
+            }
             if (pocketFullTimer > 0f)
             {
                 pocketFullTimer -= Time.deltaTime;
@@ -174,8 +314,14 @@ namespace MSCPocketItems
 
             if (debugKey.GetKeybindDown())
             {
-                GameObject player = GameObject.Find("PLAYER");
-                LogToFile($"Player position: {player.transform.position}");
+                if (pickedObject.Value != null)
+                {
+                    LogToFile($"Held item: {pickedObject.Value.name}");
+                }
+                else
+                {
+                    LogToFile("Not holding anything.");
+                }
             }
 
             if (pocketKey.GetKeybindDown())
@@ -220,11 +366,17 @@ namespace MSCPocketItems
                 {
                     if (pocket.Count >= MAX_POCKET_SLOTS)
                     {
-                        pocketFullTimer = 3f;
+                        pocketFullTimer = 1f;
                     }
                     else
                     {
                         GameObject held = pickedObject.Value;
+
+                        if (!System.Array.Exists(pocketWhitelist, n => n == held.name))
+                        {
+                            itemTooBigTimer = 1f;
+                            return;
+                        }
 
                         Rigidbody rb = held.GetComponent<Rigidbody>();
                         if (rb != null)

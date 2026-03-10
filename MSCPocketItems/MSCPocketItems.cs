@@ -107,8 +107,35 @@ namespace MSCPocketItems
 
         private void Mod_OnSave()
         {
-            // Called once, when save and quit
-            // Serialize your save file here.
+            while (pocket.Count > 0)
+            {
+                GameObject item = pocket.Pop();
+
+                foreach (var r in item.GetComponentsInChildren<Renderer>())
+                {
+                    r.enabled = true;
+                }
+
+                foreach (var c in item.GetComponentsInChildren<Collider>())
+                {
+                    c.enabled = true;
+                }
+
+                item.transform.SetParent(null);
+                item.layer = LayerMask.NameToLayer("Parts");
+
+                Rigidbody rb = item.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = true;
+                    rb.velocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                item.transform.position = new Vector3(-8.42f, 0.2f, 9.29f);
+                LogToFile($"  Set position to: {item.transform.position}");
+
+                LogToFile($"Item dumped on save: {item.name}");
+            }
         }
 
         private void Mod_OnGUI()
@@ -147,35 +174,8 @@ namespace MSCPocketItems
 
             if (debugKey.GetKeybindDown())
             {
-
-                // Log envelope state if it exists in the scene
-                GameObject envelope = GameObject.Find("envelope(xxxxx)");
-                if (envelope != null)
-                {
-                    LogToFile($"--- envelope state ---");
-                    LogToFile($"  Position: {envelope.transform.position}");
-                    LogToFile($"  Parent: {(envelope.transform.parent != null ? envelope.transform.parent.name : "null")}");
-                    LogToFile($"  Active: {envelope.activeSelf}");
-                    LogToFile($"  Layer: {LayerMask.LayerToName(envelope.layer)}");
-                    LogToFile($"  Tag: {envelope.tag}");
-                    foreach (var c in envelope.GetComponentsInChildren<Collider>())
-                    {
-                        LogToFile($"  Collider: {c.name} enabled={c.enabled} isTrigger={c.isTrigger}");
-                    }
-                    foreach (var r in envelope.GetComponentsInChildren<Renderer>())
-                    {
-                        LogToFile($"  Renderer: {r.name} enabled={r.enabled}");
-                    }
-                    Rigidbody rb = envelope.GetComponent<Rigidbody>();
-                    if (rb != null)
-                    {
-                        LogToFile($"  RB: isKinematic={rb.isKinematic} sleeping={rb.IsSleeping()}");
-                    }
-                }
-                else
-                {
-                    LogToFile("  envelope not found in scene");
-                }
+                GameObject player = GameObject.Find("PLAYER");
+                LogToFile($"Player position: {player.transform.position}");
             }
 
             if (pocketKey.GetKeybindDown())

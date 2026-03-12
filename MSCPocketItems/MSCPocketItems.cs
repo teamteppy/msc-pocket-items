@@ -10,13 +10,16 @@ namespace MSCPocketItems
         public override string ID => "MSCPocketItems";
         public override string Name => "Carry More Items";
         public override string Author => "teamteppy";
-        public override string Version => "1.0";
-        public override string Description => "Hold 3 items";
+        public override string Version => "1.1";
+        public override string Description => "Hold 3 items (Keybind: '3')";
         public override Game SupportedGames => Game.MySummerCar;
 
         private SettingsKeybind pocketKey;
 
         private FsmGameObject pickedObject;
+        private FsmGameObject raycastHitObject;
+        private FsmBool handEmpty;
+        private FsmInt lenght;
         private Transform itemPivot;
         private PlayMakerFSM pickUpFsm;
 
@@ -150,6 +153,9 @@ namespace MSCPocketItems
             "spark plug(Clone)",
             "light bulb(Clone)",
             "empty bottle(Clone)",
+            "basketball(Clone)",
+            "helmet(itemx)",
+            "fur dices(Clone)",
         };
 
         public override void ModSetup()
@@ -176,20 +182,28 @@ namespace MSCPocketItems
                 if (fsm.FsmName == "PickUp")
                 {
                     pickUpFsm = fsm;
+
                     foreach (var v in fsm.FsmVariables.GameObjectVariables)
                     {
-                        if (v.Name == "PickedObject")
-                        {
-                            pickedObject = v;
-                            break;
-                        }
+                        if (v.Name == "PickedObject") { pickedObject = v; }
+                        if (v.Name == "RaycastHitObject") { raycastHitObject = v; }
+                    }
+
+                    foreach (var v in fsm.FsmVariables.BoolVariables)
+                    {
+                        if (v.Name == "HandEmpty") { handEmpty = v; }
+                    }
+
+                    foreach (var v in fsm.FsmVariables.IntVariables)
+                    {
+                        if (v.Name == "Lenght") { lenght = v; }
                     }
 
                     break;
                 }
             }
 
-            itemPivot = GameObject.Find("ItemPivot").transform;
+            itemPivot = player.transform.Find("Pivot/AnimPivot/Camera/FPSCamera/1Hand_Assemble/ItemPivot");
         }
 
         private void Mod_OnSave()
@@ -197,16 +211,6 @@ namespace MSCPocketItems
             while (pocket.Count > 0)
             {
                 GameObject item = pocket.Pop();
-
-                foreach (var r in item.GetComponentsInChildren<Renderer>())
-                {
-                    r.enabled = true;
-                }
-
-                foreach (var c in item.GetComponentsInChildren<Collider>())
-                {
-                    c.enabled = true;
-                }
 
                 item.transform.SetParent(null);
                 item.layer = LayerMask.NameToLayer("Parts");
@@ -218,6 +222,7 @@ namespace MSCPocketItems
                     rb.velocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
+
                 item.transform.position = new Vector3(-8.42f, 0.2f, 9.29f);
             }
         }
@@ -227,19 +232,20 @@ namespace MSCPocketItems
             if (itemTooBigTimer > 0f)
             {
                 GUIStyle style = new GUIStyle();
-                style.fontSize = 60;
+                style.fontSize = 30;
                 style.fontStyle = FontStyle.Bold;
-                style.normal.textColor = Color.white;
+                style.normal.textColor = Color.yellow;
                 style.alignment = TextAnchor.UpperCenter;
 
                 GUI.Label(new Rect(0, 60, Screen.width, 60), "Liikaa tavaraa! ):", style);
             }
+
             if (pocketFullTimer > 0f)
             {
                 GUIStyle style = new GUIStyle();
-                style.fontSize = 60;
+                style.fontSize = 30;
                 style.fontStyle = FontStyle.Bold;
-                style.normal.textColor = Color.white;
+                style.normal.textColor = Color.yellow;
                 style.alignment = TextAnchor.UpperCenter;
 
                 GUI.Label(new Rect(0, 60, Screen.width, 60), "Liikaa tavaraa! (3/3)", style);
@@ -265,6 +271,7 @@ namespace MSCPocketItems
             {
                 itemTooBigTimer -= Time.deltaTime;
             }
+
             if (pocketFullTimer > 0f)
             {
                 pocketFullTimer -= Time.deltaTime;
@@ -276,26 +283,13 @@ namespace MSCPocketItems
                 {
                     GameObject item = pocket.Pop();
 
-                    foreach (var r in item.GetComponentsInChildren<Renderer>())
-                    {
-                        r.enabled = true;
-                    }
+                    item.transform.SetParent(itemPivot, true);
+                    item.transform.localPosition = Vector3.zero;
 
-                    foreach (var c in item.GetComponentsInChildren<Collider>())
-                    {
-                        c.enabled = true;
-                    }
-
-                    pickedObject.Value = null;
-                    pickUpFsm.SendEvent("DROP_PART");
-
-                    item.transform.SetParent(null);
-                    item.layer = LayerMask.NameToLayer("Parts");
-
-                    GameObject player = GameObject.Find("PLAYER");
-                    item.transform.position = player.transform.position
-                        + player.transform.forward * 0.8f
-                        + Vector3.up * 1.6f;
+                    pickedObject.Value = item;
+                    raycastHitObject.Value = item;
+                    handEmpty.Value = false;
+                    lenght.Value = item.name.Length;
 
                     Rigidbody rb = item.GetComponent<Rigidbody>();
                     if (rb != null)
@@ -303,48 +297,39 @@ namespace MSCPocketItems
                         rb.isKinematic = false;
                         rb.velocity = Vector3.zero;
                         rb.angularVelocity = Vector3.zero;
-                        rb.WakeUp();
                     }
+
+                    pickUpFsm.SendEvent("FINISHED");
                 }
                 else if (pickedObject.Value != null && pocket.Count < MAX_POCKET_SLOTS)
                 {
-                    if (pocket.Count >= MAX_POCKET_SLOTS)
+                    GameObject held = pickedObject.Value;
+
+                    if (!System.Array.Exists(pocketWhitelist, n => n == held.name))
                     {
-                        pocketFullTimer = 1f;
+                        itemTooBigTimer = 1f;
+                        return;
                     }
-                    else
+
+                    Rigidbody rb = held.GetComponent<Rigidbody>();
+                    if (rb != null)
                     {
-                        GameObject held = pickedObject.Value;
-
-                        if (!System.Array.Exists(pocketWhitelist, n => n == held.name))
-                        {
-                            itemTooBigTimer = 1f;
-                            return;
-                        }
-
-                        Rigidbody rb = held.GetComponent<Rigidbody>();
-                        if (rb != null)
-                        {
-                            rb.isKinematic = true;
-                            rb.velocity = Vector3.zero;
-                            rb.angularVelocity = Vector3.zero;
-                        }
-
-                        held.transform.SetParent(fpsCamera.transform);
-                        held.transform.localRotation = Quaternion.Euler(20f, 120f, 0f);
-                        pickedObject.Value = null;
-                        pickUpFsm.SendEvent("DROP_PART");
-                        pocket.Push(held);
+                        rb.isKinematic = true;
+                        rb.velocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
                     }
+
+                    held.transform.SetParent(fpsCamera.transform);
+                    held.transform.localRotation = Quaternion.Euler(20f, 120f, 0f);
+                    pickedObject.Value = null;
+                    pickUpFsm.SendEvent("DROP_PART");
+                    pocket.Push(held);
                 }
                 else if (pickedObject.Value != null && pocket.Count >= MAX_POCKET_SLOTS)
                 {
-                    // holding something but pocket full
                     pocketFullTimer = 1f;
                 }
             }
-
         }
-
     }
 }
